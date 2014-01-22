@@ -1,0 +1,22 @@
+div(ng-controller="chartCtrl")
+  div
+    input(type="text" ng-model="urlParameter" ng-init="urlParameter='t.http.POST-notifier_api-v2-notices'")
+    button(ng-click="drawYearChart()") draw Year chart
+    button(ng-click="drawHourChart()") draw Hour chart
+
+    div
+      div(id="chartFirst" style="width:1200px;height:300px")
+      div(id="tooltipFirst")
+
+      div(ng-repeat="chart in firstChartList")
+        br
+        input(type="checkbox" ng-checked="chartsIsCheckedCondition[chart]" ng-model="chartsIsCheckedCondition[chart]")
+        | {{chart}}
+    div
+      div(id="chartSecond" style="width:1200px;height:300px")
+      div(id="tooltipSecond")
+
+      div(ng-repeat="chart in secondChartList")
+        br
+        input(type="checkbox" ng-checked="chartsIsCheckedCondition[chart]" ng-model="chartsIsCheckedCondition[chart]")
+        | {{chart}}
