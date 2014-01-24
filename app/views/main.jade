@@ -5,18 +5,14 @@ div(ng-controller="chartCtrl")
     button(ng-click="drawHourChart()") draw Hour chart
 
     div
-      div(id="chartFirst" style="width:1200px;height:300px")
-      div(id="tooltipFirst")
-
-      div(ng-repeat="chart in firstChartList")
-        br
-        input(type="checkbox" ng-checked="chartsIsCheckedCondition[chart]" ng-model="chartsIsCheckedCondition[chart]")
-        | {{chart}}
+      div(id="chartMeanStddev" style="width:1200px;height:300px")
+      div(id="tooltipMeanStddev")
     div
-      div(id="chartSecond" style="width:1200px;height:300px")
-      div(id="tooltipSecond")
-
-      div(ng-repeat="chart in secondChartList")
-        br
-        input(type="checkbox" ng-checked="chartsIsCheckedCondition[chart]" ng-model="chartsIsCheckedCondition[chart]")
-        | {{chart}}
+      div(id="chartMax" style="width:1200px;height:300px")
+      div(id="tooltipMax")
+    div
+      div(id="chartMin" style="width:1200px;height:300px")
+      div(id="tooltipMin")
+    div
+      div(id="chartN" style="width:1200px;height:300px")
+      div(id="tooltipN")

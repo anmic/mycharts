@@ -2,6 +2,7 @@ mod = angular.module("myApp")
 
 
 mod.controller "chartCtrl", ($scope, chartsData) ->
+  $scope.resolution = "day"
   $scope.$watch "resolution", ->
     redrawCharts()
 
@@ -21,11 +22,12 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
         $scope.visibleLines[name] = true
         $scope.chartColors[name] = colorInd
 
-      $scope.firstChartNames = [
-        $scope.urlParameter + ".mean",
-        $scope.urlParameter + ".min",
-        $scope.urlParameter + ".stddev"]
-      $scope.secondChartNames = [$scope.urlParameter + ".n"]
+      $scope.lineNamesInCharts = [ 
+        ["mean", "stddev"] ,
+        "max",
+        "min"
+        "n"
+      ]
 
       redrawAllCharts data
 
@@ -39,10 +41,21 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
 
 
   redrawAllCharts = (data) ->
-    drawChart data, $scope.firstChartNames, "First"
-    drawChart data, $scope.secondChartNames, "Second"
+    for lineNames in $scope.lineNamesInCharts
+      drawChart data, lineNames
 
-  drawChart = (dataCharts, lineNames, chartName) ->
+  drawChart = (dataCharts, lineNames) ->
+    chartName = ""
+    if typeof lineNames == "string"
+      chartName = lineNames.substr(0, 1).toUpperCase() + lineNames.substr(1)
+      name = $scope.urlParameter + "." + lineNames
+      lineNames = []
+      lineNames.push name
+    else
+      for lineName in lineNames
+        chartName = chartName + lineName.substr(0, 1).toUpperCase() + lineName.substr(1)
+      lineNames = lineNames.map (name) -> return $scope.urlParameter + "." + name
+
     tooltip = "#tooltip" + chartName
     placeHolder = "#chart" + chartName
 
@@ -61,6 +74,7 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
     $(tooltip).css "display", "block"
     $(placeHolder).css "display", "block"
 
+    chartLabel= ""
     $.each visibleLineNames, (_, name) ->
       for points in dataCharts[name]
         basicPointsLines.push points;
@@ -96,6 +110,16 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
 
     $(placeHolder).empty()
 
+    yaxisLabel = "ms"
+    if chartLabel == "n"
+      console.log $scope.resolution
+      if $scope.resolution == "year"
+        console.log "1!"
+        yaxisLabel = "RPH"
+      if $scope.resolution == "day"
+        console.log "2!"
+        yaxisLabel = "RPM"
+
     options =
       series:
         curvedLines:
@@ -112,17 +136,21 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
         axisLabel: "time"
         mode: "time"
       yaxis:
-        axisLabel: "RPS"
+        axisLabel: yaxisLabel
 
     $.plot(placeHolder, lines, options)
     currentAdditionalPoints = AdditionalPoints
     AdditionalPoints = []
 
     $(placeHolder).bind "plotselected", (event, ranges) ->
+      $scope.zoom = {
+        xFrom: ranges.xaxis.from,
+        yFrom: ranges.xaxis.to
+      }
       opts = $.extend(true, {}, options, {
         xaxis: {
-          min: ranges.xaxis.from,
-          max: ranges.xaxis.to,
+          min: $scope.zoom[xFrom],
+          max: $scope.zoom[xFrom],
         },
       })
       plot = $.plot(placeHolder, lines, opts)
