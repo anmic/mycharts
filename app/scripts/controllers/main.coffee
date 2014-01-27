@@ -112,12 +112,9 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
 
     yaxisLabel = "ms"
     if chartLabel == "n"
-      console.log $scope.resolution
       if $scope.resolution == "year"
-        console.log "1!"
         yaxisLabel = "RPH"
       if $scope.resolution == "day"
-        console.log "2!"
         yaxisLabel = "RPM"
 
     options =
@@ -138,6 +135,15 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
       yaxis:
         axisLabel: yaxisLabel
 
+    if ($scope.zoom)
+      console.log "zoom redraw"
+      options = $.extend(true, {}, options, {
+        xaxis: {
+          min: $scope.zoom["xFrom"],
+          max: $scope.zoom["xTo"],
+        },
+      })
+
     $.plot(placeHolder, lines, options)
     currentAdditionalPoints = AdditionalPoints
     AdditionalPoints = []
@@ -145,15 +151,9 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
     $(placeHolder).bind "plotselected", (event, ranges) ->
       $scope.zoom = {
         xFrom: ranges.xaxis.from,
-        yFrom: ranges.xaxis.to
+        xTo: ranges.xaxis.to
       }
-      opts = $.extend(true, {}, options, {
-        xaxis: {
-          min: $scope.zoom[xFrom],
-          max: $scope.zoom[xFrom],
-        },
-      })
-      plot = $.plot(placeHolder, lines, opts)
+      redrawAllCharts(dataCharts)
 
     $(placeHolder).bind "plothover", (event, pos, item) ->
       $(tooltip).hide()
