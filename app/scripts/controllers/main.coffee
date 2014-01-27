@@ -136,7 +136,6 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
         axisLabel: yaxisLabel
 
     if ($scope.zoom)
-      console.log "zoom redraw"
       options = $.extend(true, {}, options, {
         xaxis: {
           min: $scope.zoom["xFrom"],
@@ -145,8 +144,8 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
       })
 
     $.plot(placeHolder, lines, options)
-    currentAdditionalPoints = AdditionalPoints
-    AdditionalPoints = []
+    currentAdditionalPoints = window.AdditionalPoints
+    window.AdditionalPoints = []
 
     $(placeHolder).bind "plotselected", (event, ranges) ->
       $scope.zoom = {
@@ -159,15 +158,12 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
       $(tooltip).hide()
 
       return unless item
-
-      allChartsPoints = basicPointsLines
-
+      allChartsPoints = basicPointsLines.concat(currentAdditionalPoints)
       needed = parseInt(item.datapoint[0], 10)
 
       res = $.grep allChartsPoints, (v, _) ->
         return v[0] == needed
       return if res.length is 0
-
       x = parseInt(parseInt(item.datapoint[0], 10).toFixed(0), 10)
       y = parseFloat(item.datapoint[1], 10).toFixed(2)
 

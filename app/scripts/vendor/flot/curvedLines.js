@@ -83,7 +83,7 @@
 	 * 		   This change breakes existing code however CurvedLines are now just many tiny straight lines to flot and therefore all flot lines options (like gradient fill,
 	 * 	       shadow) are now supported out of the box
 	 */
-	 var AdditionalPoints = [];
+	window.AdditionalPoints = [];
 	(function($) {
 
 		var options = {
@@ -347,10 +347,10 @@
 
 					var a = (xdata[max] - xnew[j]) / h;
 					var b = (xnew[j] - xdata[min]) / h;
-
+					// window.AdditionalPoints = []
 					ynew[j] = a * ydata[min] + b * ydata[max] + ((a * a * a - a) * y2[min] + (b * b * b - b) * y2[max]) * (h * h) / 6;
 					pointData = [parseInt(xnew[j].toFixed(0), 10), parseInt(ynew[j].toFixed(0), 100)];
-					AdditionalPoints.push(pointData);
+					window.AdditionalPoints.push(pointData);
 					if (ynew[j]<0) {ynew[j]=0}
 					result.push(xnew[j].toFixed(0));
 					result.push(ynew[j]);
