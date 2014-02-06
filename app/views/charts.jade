@@ -1,0 +1,19 @@
+div
+  input(type="text" ng-model="urlParameter")
+  button(ng-click="drawYearChart()") draw Year chart
+  button(ng-click="drawHourChart()") draw Hour chart
+  button(ng-click="test()") Test
+  div
+    div(id="overview" style="margin-left:0px;margin-top:20px;width:1200px;height:50px")
+  div
+    div(id="chartMeanStddev" style="width:1200px;height:300px")
+    div(id="tooltipMeanStddev")
+  div
+    div(id="chartMax" style="width:1200px;height:300px")
+    div(id="tooltipMax")
+  div
+    div(id="chartMin" style="width:1200px;height:300px")
+    div(id="tooltipMin")
+  div
+    div(id="chartN" style="width:1200px;height:300px")
+    div(id="tooltipN")

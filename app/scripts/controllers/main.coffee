@@ -1,9 +1,35 @@
-mod = angular.module("myApp")
+mod = angular.module("myApp", ["ngRoute"])
 
+mod.config ($routeProvider)->
+  $routeProvider
+    .when "/",
+      templateUrl: "views/main.html",
+      controller: "mainCtrl"
+    .when "/charts/:adress",
+      templateUrl: "views/charts.html",
+      controller: "chartCtrl"
 
-mod.controller "chartCtrl", ($scope, chartsData) ->
+mod.controller "mainCtrl", ($scope) ->
+  $scope.chartsList = {
+    firstchart: "t.http.POST-notifier_api-v1-notices",
+    secondChart: "t.http.POST-notifier_api-v2-notices",
+    thirdChart: "t.http.POST-notifier_api-v3-notices"
+  }
+
+mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
+
+  $scope.$watch("zoom", ((newVal, oldVal) ->
+    console.log "!!" unless newVal is oldVal
+    redrawAllCharts($scope.data) unless newVal is oldVal
+    message = newVal + oldVal
+    console.log newVal, oldVal
+    return message
+    ), true)    
+
+  $scope.urlParameter = $routeParams.adress
   $scope.resolution = "day"
   $scope.$watch "resolution", ->
+    console.log "change resolution"
     redrawCharts()
 
   $scope.drawYearChart = ->
@@ -13,13 +39,12 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
     $scope.resolution = "day"
 
   redrawCharts = ->
+    console.log "start function redrawCharts"
     chartsData.getData($scope.resolution, $scope.urlParameter).then ((data) ->
       $scope.chartColors = {}
-      $scope.visibleLines = {}
       colorInd = 0
       $.each data, (name, chartData) ->
         colorInd++
-        $scope.visibleLines[name] = true
         $scope.chartColors[name] = colorInd
 
       $scope.lineNamesInCharts = [ 
@@ -28,23 +53,22 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
         "min"
         "n"
       ]
-
+      $scope.data = data
       redrawAllCharts data
 
-      $scope.$watch (->
-        angular.toJson($scope.visibleLines)
-      ), (newValue, oldValue) ->
-        redrawAllCharts(data) unless newValue is oldValue
     ), (errorMessage) ->
       console.log errorMessage
       $scope.error = errorMessage
 
 
   redrawAllCharts = (data) ->
+    console.log "start function redrawAllCharts"
     for lineNames in $scope.lineNamesInCharts
       drawChart data, lineNames
 
-  drawChart = (dataCharts, lineNames) ->
+  drawChart = (dataCharts, lineNames) ->   
+
+    console.log "start function drawChart"
     chartName = ""
     if typeof lineNames == "string"
       chartName = lineNames.substr(0, 1).toUpperCase() + lineNames.substr(1)
@@ -62,11 +86,8 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
     lines = []
     basicPointsLines = []
 
-    visibleLineNames = []
-    $.each lineNames, (_, name) ->
-      visibleLineNames.push name  if $scope.visibleLines[name]
 
-    if visibleLineNames.length is 0
+    if lineNames.length is 0
       $(tooltip).css "display", "none"
       $(placeHolder).css "display", "none"
       return
@@ -75,38 +96,21 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
     $(placeHolder).css "display", "block"
 
     chartLabel= ""
-    $.each visibleLineNames, (_, name) ->
+    $.each lineNames, (_, name) ->
       for points in dataCharts[name]
         basicPointsLines.push points;
 
 
       chartLabel = name.slice name.lastIndexOf(".")+1 , name.lenght
-
       line =
         data: dataCharts[name]
         color: $scope.chartColors[name]
         points:
           show: false
         lines:
-          show: false
+          show: true
 
       lines.push line
-
-      curvedLine =
-        data: dataCharts[name]
-        color: $scope.chartColors[name]
-        points:
-          show: false
-        label: chartLabel
-        lines:
-          show: true
-          lineWidth: 2
-        curvedLines:
-          apply: true
-          fit: true
-          curvePointFactor: 4
-
-      lines.push curvedLine
 
     $(placeHolder).empty()
 
@@ -152,7 +156,7 @@ mod.controller "chartCtrl", ($scope, chartsData) ->
         xFrom: ranges.xaxis.from,
         xTo: ranges.xaxis.to
       }
-      redrawAllCharts(dataCharts)
+      $scope.$apply()
 
     $(placeHolder).bind "plothover", (event, pos, item) ->
       $(tooltip).hide()

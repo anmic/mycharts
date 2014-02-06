@@ -1,18 +1,3 @@
-div(ng-controller="chartCtrl")
+div(ng-repeat="(chartName, adress) in chartsList")
   div
-    input(type="text" ng-model="urlParameter" ng-init="urlParameter='t.http.POST-notifier_api-v2-notices'")
-    button(ng-click="drawYearChart()") draw Year chart
-    button(ng-click="drawHourChart()") draw Hour chart
-
-    div
-      div(id="chartMeanStddev" style="width:1200px;height:300px")
-      div(id="tooltipMeanStddev")
-    div
-      div(id="chartMax" style="width:1200px;height:300px")
-      div(id="tooltipMax")
-    div
-      div(id="chartMin" style="width:1200px;height:300px")
-      div(id="tooltipMin")
-    div
-      div(id="chartN" style="width:1200px;height:300px")
-      div(id="tooltipN")
+    a(ng-href="/#/charts/{{adress}}") {{chartName}}
