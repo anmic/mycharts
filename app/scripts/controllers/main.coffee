@@ -5,9 +5,10 @@ mod.config ($routeProvider)->
     .when "/",
       templateUrl: "views/main.html",
       controller: "mainCtrl"
-    .when "/charts/:adress",
+    .when "/charts/:address",
       templateUrl: "views/charts.html",
       controller: "chartCtrl"
+
 
 mod.directive "ngRightClick", ($parse) ->
   return (scope, element, attrs) -> 
@@ -17,6 +18,7 @@ mod.directive "ngRightClick", ($parse) ->
         event.preventDefault()
         fn(scope, {$event:event})
 
+
 mod.controller "mainCtrl", ($scope) ->
   $scope.chartsList = {
     firstchart: "t.http.POST-notifier_api-v1-notices",
@@ -24,37 +26,51 @@ mod.controller "mainCtrl", ($scope) ->
     thirdChart: "t.http.POST-notifier_api-v3-notices"
   }
 
+
 mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
-  $scope.urlParameter = $routeParams.adress
+  # init new parameter
+  $scope.id = $routeParams.address
   $scope.resolution = "day"
 
-  $scope.$watch("zoom", ((newVal, oldVal) ->
-    redrawAllCharts($scope.data) unless newVal is oldVal
-    ), true)    
+  # watch for zoon &resolution
 
   $scope.$watch "resolution", ->
-    redrawCharts()
+    chartsData.getData($scope.resolution, $scope.id).then (data) -> 
+      redrawCharts(data)
+    , (errorMessage) ->
+      $scope.error = errorMessage
 
-  convert = (array, base)->
-    result =[]
-    for i in [0...Math.floor(array.length/base)]
-      xSum = ySum = 0;
-      for j in [0...base]
-        xSum += array[i*base + j][0]
-        ySum += array[i*base + j][1]
-      xAv = xSum / base
-      yAv = ySum / base
-      result.push([xAv,yAv])
-      modulo = array.length%base
-    if (modulo)
+  $scope.$watch("zoom", ((newVal, oldVal) ->
+    if $scope.zoom
+      updateChart()
+  ), true)  
+
+
+  # convert points in average points
+  convert = (src, base)->
+    dst = []
+    dstLen = Math.floor(src.lemngth / base)
+    i = 0
+    xSum = ySum = 0
+    for point in src
+      i++
+      xSum += point[0]
+      ySum += point[1]
+      if i%base == 0
+        xAvg = xSum / base
+        yAvg = ySum / base
+        dst.push([xAvg,yAvg])
+        xSum = ySum = 0
+    modulo = src.length % base 
+    if modulo
       xSum = ySum = 0
       for i in [1..modulo]
-        xSum += array[array.length - i][0]
-        ySum += array[array.length - i][1]
+        xSum += src[src.length - i][0]
+        ySum += src[src.length - i][1]
       xAv = xSum / modulo
       yAv = ySum / modulo
-      result.push([xAv,yAv])
-    return result
+      dst.push([xAv,yAv])
+    return dst
 
   $scope.zoomOut = -> 
     $scope.zoom = $scope.initResolution
@@ -67,92 +83,87 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
     $scope.zoom = $scope.initResolution
     $scope.resolution = "day"
 
-  redrawCharts = ->
-    chartsData.getData($scope.resolution, $scope.urlParameter).then ((data) ->
-      $scope.chartColors = {}
-      colorInd = 0
-      $.each data, (name, chartData) ->
-        colorInd++
-        $scope.chartColors[name] = colorInd
+  redrawCharts = (data) ->
 
-      $scope.lineNamesInCharts = [
-        "n",
-        ["mean", "stddev"] ,
-        "max",
-        "min"
-      ]
-      chartLength = data["t.http.POST-notifier_api-v2-notices.max"].length
-      xFrom = data["t.http.POST-notifier_api-v2-notices.max"][0][0]
-      xTo = data["t.http.POST-notifier_api-v2-notices.max"][chartLength-1][0]
-      $scope.initResolution = {
-        xFrom: xFrom,
-        xTo: xTo
-      }
-      $scope.zoom = $scope.initResolution
-      $scope.data = data
-      redrawAllCharts data
+    lineNamesInCharts = [
+      ["n"],
+      ["mean", "stddev"] ,
+      ["max"],
+      ["min"]
+    ]
 
-    ), (errorMessage) ->
-      $scope.error = errorMessage
-
-
-  redrawAllCharts = (data) ->
-    for lineNames in $scope.lineNamesInCharts
-      drawChart data, lineNames
-
-  drawChart = (dataCharts, lineNames) ->   
-
-    chartName = ""
-    if typeof lineNames == "string"
-      chartName = lineNames.substr(0, 1).toUpperCase() + lineNames.substr(1)
-      name = $scope.urlParameter + "." + lineNames
-      lineNames = []
-      lineNames.push name
-    else
-      for lineName in lineNames
-        chartName = chartName + lineName.substr(0, 1).toUpperCase() + lineName.substr(1)
-      lineNames = lineNames.map (name) -> return $scope.urlParameter + "." + name
-
-    tooltip = "#tooltip" + chartName
-    placeHolder = "#chart" + chartName
+    $scope.chartNames = []
 
     lines = []
-    basicPointsLines = []
+
+    fullName = $scope.id + "." + lineNamesInCharts[0][0]
+    chartLength = data[fullName].length
+    xFrom = data[fullName][0][0]
+    xTo = data[fullName][chartLength-1][0]
+    $scope.initResolution = {
+      xFrom: xFrom,
+      xTo: xTo
+    }
+    $scope.charts = {}
+    i=1;
+    for lineNames in lineNamesInCharts
+      $scope.zoom = $scope.initResolution
+      $scope.data = data
+
+      yaxisLabel = "ms"
+      if lineNames[0] == "n"
+        if $scope.resolution == "year"
+          yaxisLabel = "RPH"
+        if $scope.resolution == "day"
+          yaxisLabel = "RPM"
+  
+      chartName = ""
+
+      chartColors = i
+      i++
+      lines = []
+      chartPoints = []
+      for lineName in lineNames
+
+        chartName = chartName + lineName.substr(0, 1).toUpperCase() + lineName.substr(1)
+        convertedLine = convert(data[$scope.id + "." + lineName], 3)
+        chartPoints = convertedLine
+        line =
+          data: convertedLine
+          color: chartColors
+          points:
+            show: false
+          lines:
+            show: true
+          label: lineName
+
+        lines.push(line)
+
+      $scope.chartNames.push(chartName)
+
+      $scope.charts[chartName] = {
+        name: chartName,
+        points : chartPoints
+        line: lines,
+        chartLabel: chartName,
+        yaxisLabel: yaxisLabel
+      }
+    # updateChart()
 
 
-    if lineNames.length is 0
-      $(tooltip).css "display", "none"
-      $(placeHolder).css "display", "none"
-      return
+  updateChart = ->
+    for chartName in $scope.chartNames
+      drawChart $scope.charts[chartName]
 
-    $(tooltip).css "display", "block"
-    $(placeHolder).css "display", "block"
-    chartLabel = ""
-    $.each lineNames, (_, name) ->
-      for points in dataCharts[name]
-        basicPointsLines.push points;
+  drawChart = (chart) ->
 
-      convertLine = convert(dataCharts[name], 5)
-      chartLabel = name.slice name.lastIndexOf(".")+1 , name.lenght
-      line =
-        data: convertLine
-        color: $scope.chartColors[name]
-        points:
-          show: false
-        lines:
-          show: true
-        label: chartLabel
+    $tooltip = $("#tooltip" + chart.name)
+    $placeHolder = $("#chart" + chart.name)
 
-      lines.push line
+    $tooltip.css("display", "block")
+    $placeHolder.css "display", "block"
 
-    $(placeHolder).empty()
-
-    yaxisLabel = "ms"
-    if chartLabel == "n"
-      if $scope.resolution == "year"
-        yaxisLabel = "RPH"
-      if $scope.resolution == "day"
-        yaxisLabel = "RPM"
+    $placeHolder.empty()
 
     options =
       series:
@@ -170,7 +181,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
         axisLabel: "time"
         mode: "time"
       yaxis:
-        axisLabel: yaxisLabel
+        axisLabel: chart.yaxisLabel
 
     if ($scope.zoom)
       options = $.extend(true, {}, options, {
@@ -180,34 +191,32 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
         },
       })
 
-    $.plot(placeHolder, lines, options)
-    currentAdditionalPoints = window.AdditionalPoints
-    window.AdditionalPoints = []
 
-    $(placeHolder).bind "plotselected", (event, ranges) ->
+    $.plot($placeHolder, chart.line, options)
+
+    $placeHolder.bind "plotselected", (event, ranges) ->
       $scope.zoom = {
         xFrom: ranges.xaxis.from,
         xTo: ranges.xaxis.to
       }
       $scope.$apply()
 
-    $(placeHolder).bind "plothover", (event, pos, item) ->
-      $(tooltip).hide()
-
+    $placeHolder.bind "plothover", (event, pos, item) ->
+      $tooltip.hide()
       return unless item
-      allChartsPoints = basicPointsLines.concat(currentAdditionalPoints)
-      needed = parseInt(item.datapoint[0], 10)
 
-      res = $.grep allChartsPoints, (v, _) ->
+      needed = parseInt(item.datapoint[0], 10)
+      res = $.grep chart.points, (v, _) ->
         return v[0] == needed
       return if res.length is 0
-      x = parseInt(parseInt(item.datapoint[0], 10).toFixed(0), 10)
+
+      x = parseInt(item.datapoint[0], 10)
       y = parseFloat(item.datapoint[1], 10).toFixed(2)
 
       date = new Date(x)
       date = date.format()
       radius = 5
-      $(tooltip).html(y + " at " + date).css({
+      $tooltip.html(y + " at " + date).css({
         top: item.pageY + radius,
         left: item.pageX + radius,
       }).fadeIn 200
