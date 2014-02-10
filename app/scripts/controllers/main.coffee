@@ -5,7 +5,7 @@ mod.config ($routeProvider)->
     .when "/",
       templateUrl: "views/main.html",
       controller: "mainCtrl"
-    .when "/charts/:address",
+    .when "/charts/:id",
       templateUrl: "views/charts.html",
       controller: "chartCtrl"
 
@@ -28,15 +28,14 @@ mod.controller "mainCtrl", ($scope) ->
 
 
 mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
-  # init new parameter
-  $scope.id = $routeParams.address
+
+  $scope.id = $routeParams.id
   $scope.resolution = "day"
 
-  # watch for zoon &resolution
-
   $scope.$watch "resolution", ->
-    chartsData.getData($scope.resolution, $scope.id).then (data) -> 
-      redrawCharts(data)
+    chartsData.getData($scope.resolution, $scope.id).then (data) ->
+      $scope.data = data
+      redrawCharts()
     , (errorMessage) ->
       $scope.error = errorMessage
 
@@ -46,32 +45,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
   ), true)  
 
 
-  # convert points in average points
-  convert = (src, base)->
-    dst = []
-    dstLen = Math.floor(src.lemngth / base)
-    i = 0
-    xSum = ySum = 0
-    for point in src
-      i++
-      xSum += point[0]
-      ySum += point[1]
-      if i%base == 0
-        xAvg = xSum / base
-        yAvg = ySum / base
-        dst.push([xAvg,yAvg])
-        xSum = ySum = 0
-    modulo = src.length % base 
-    if modulo
-      xSum = ySum = 0
-      for i in [1..modulo]
-        xSum += src[src.length - i][0]
-        ySum += src[src.length - i][1]
-      xAv = xSum / modulo
-      yAv = ySum / modulo
-      dst.push([xAv,yAv])
-    return dst
-
+  
   $scope.zoomOut = -> 
     $scope.zoom = $scope.initResolution
 
@@ -83,80 +57,81 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
     $scope.zoom = $scope.initResolution
     $scope.resolution = "day"
 
-  redrawCharts = (data) ->
+  getYaxesLabel = (resolution, chartName) ->
+    yaxisLabel = {
+      "year" : {
+        N: "RPH",
+        MeanStddev : "ms",
+        Max : "ms",
+        Min: "ms",
+      }
+      "day" : {
+        N: "RPM",
+        MeanStddev: "ms",
+        Max: "ms",
+        Min: "ms",
+      }
+    }
+    return yaxisLabel[resolution][chartName]
 
+  getLines = ->
+    lines = {}
+    options = []
+    points = []
+    for lineName, i in $scope.lineNames
+      convertedData = convert($scope.data[$scope.id + "." + lineName], 3)
+
+      line =
+        data: convertedData
+        color: i+1
+        points:
+          show: false
+        lines:
+          show: true
+        label: lineName
+
+      options.push(line)
+      lines.options = options
+      lines.points = convertedData
+    return lines
+
+  redrawCharts = () ->
     lineNamesInCharts = [
       ["n"],
       ["mean", "stddev"] ,
       ["max"],
       ["min"]
     ]
-
     $scope.chartNames = []
-
-    lines = []
-
-    fullName = $scope.id + "." + lineNamesInCharts[0][0]
-    chartLength = data[fullName].length
-    xFrom = data[fullName][0][0]
-    xTo = data[fullName][chartLength-1][0]
-    $scope.initResolution = {
-      xFrom: xFrom,
-      xTo: xTo
-    }
     $scope.charts = {}
-    i=1;
-    for lineNames in lineNamesInCharts
-      $scope.zoom = $scope.initResolution
-      $scope.data = data
 
-      yaxisLabel = "ms"
-      if lineNames[0] == "n"
-        if $scope.resolution == "year"
-          yaxisLabel = "RPH"
-        if $scope.resolution == "day"
-          yaxisLabel = "RPM"
-  
+    for lineNames in lineNamesInCharts
+      $scope.lineNames = lineNames
       chartName = ""
 
-      chartColors = i
-      i++
-      lines = []
-      chartPoints = []
-      for lineName in lineNames
-
+      for lineName, i in lineNames
         chartName = chartName + lineName.substr(0, 1).toUpperCase() + lineName.substr(1)
-        convertedLine = convert(data[$scope.id + "." + lineName], 3)
-        chartPoints = convertedLine
-        line =
-          data: convertedLine
-          color: chartColors
-          points:
-            show: false
-          lines:
-            show: true
-          label: lineName
-
-        lines.push(line)
-
       $scope.chartNames.push(chartName)
+
+      yaxisLabel = getYaxesLabel($scope.resolution, chartName)
+      lines = getLines()
 
       $scope.charts[chartName] = {
         name: chartName,
-        points : chartPoints
-        line: lines,
+        points : lines.points,
+        line: lines.options,
         chartLabel: chartName,
         yaxisLabel: yaxisLabel
       }
-    # updateChart()
 
+    $scope.initResolution = getInitResolution(lines.points)
+    $scope.zoom = $scope.initResolution
 
   updateChart = ->
     for chartName in $scope.chartNames
       drawChart $scope.charts[chartName]
 
   drawChart = (chart) ->
-
     $tooltip = $("#tooltip" + chart.name)
     $placeHolder = $("#chart" + chart.name)
 
@@ -191,20 +166,18 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
         },
       })
 
-
     $.plot($placeHolder, chart.line, options)
 
     $placeHolder.bind "plotselected", (event, ranges) ->
-      $scope.zoom = {
-        xFrom: ranges.xaxis.from,
-        xTo: ranges.xaxis.to
-      }
-      $scope.$apply()
+      $scope.$apply ->
+        $scope.zoom = {
+          xFrom: ranges.xaxis.from,
+          xTo: ranges.xaxis.to
+        }
 
     $placeHolder.bind "plothover", (event, pos, item) ->
       $tooltip.hide()
       return unless item
-
       needed = parseInt(item.datapoint[0], 10)
       res = $.grep chart.points, (v, _) ->
         return v[0] == needed
@@ -213,6 +186,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       x = parseInt(item.datapoint[0], 10)
       y = parseFloat(item.datapoint[1], 10).toFixed(2)
 
+
       date = new Date(x)
       date = date.format()
       radius = 5
@@ -220,3 +194,31 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
         top: item.pageY + radius,
         left: item.pageX + radius,
       }).fadeIn 200
+
+
+convert = (src, base)->
+  dst = []
+  xAvg = yAvg = 0
+  modulo = src.length % base
+  j = 0;
+  for i in [0...src.length]
+    j++
+    if i == src.length - modulo
+      base = modulo
+      j = 1
+    xAvg += Math.floor(src[i][0] / base)
+    yAvg += src[i][1] / base
+    if j%base == 0
+      dst.push([xAvg, yAvg])
+      xAvg = yAvg = 0
+  return dst
+
+getInitResolution = (src)->
+  chartLength = src.length
+  xFrom = src[0][0]
+  xTo = src[chartLength-1][0]
+  initResolution = {
+    xFrom: xFrom,
+    xTo: xTo
+  }
+  return initResolution
