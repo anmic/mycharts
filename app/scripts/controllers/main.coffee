@@ -1,5 +1,6 @@
 mod = angular.module("myApp", ["ngRoute"])
 
+
 mod.config ($routeProvider)->
   $routeProvider
     .when "/",
@@ -26,117 +27,94 @@ mod.controller "mainCtrl", ($scope) ->
     thirdChart: "t.http.POST-notifier_api-v3-notices"
   }
 
-
 mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
-
   $scope.id = $routeParams.id
   $scope.resolution = "day"
 
+
+  chartsInfo = [
+    {
+      name: "n",
+      yAxeLabel: {day: "RPM", year: "RPH"},
+      lineNames :["n"]
+      },
+    {
+      name: "meanStddev",
+      yAxeLabel: {day: "ms", year: "ms"},
+      lineNames: ["mean", "stddev"]
+      } ,
+    {
+      name: "max",
+      yAxeLabel: {day: "ms", year: "ms"},
+      lineNames: ["max"]
+      },
+    {
+      name: "min",
+      yAxeLabel: {day: "ms", year: "ms"},
+      lineNames: ["min"]
+    }
+  ]
+
   $scope.$watch "resolution", ->
     chartsData.getData($scope.resolution, $scope.id).then (data) ->
-      $scope.data = data
-      redrawCharts()
+      $scope.charts = {}
+      for chartInfo in chartsInfo
+        $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id)
+      points =  $scope.charts[chartInfo.name].line[0].data
+
+      $scope.defaultResolution = getXAxeRange(points)
+
+      $scope.visibleRange = $scope.defaultResolution
     , (errorMessage) ->
       $scope.error = errorMessage
 
-  $scope.$watch("zoom", ((newVal, oldVal) ->
-    if $scope.zoom
-      updateChart()
-  ), true)  
+  $scope.$watch("visibleRange", ->
+    return unless $scope.visibleRange
+    updateChart()
+  , true)  
 
-
-  
   $scope.zoomOut = -> 
-    $scope.zoom = $scope.initResolution
+    $scope.visibleRange = $scope.defaultResolution
 
   $scope.drawYearChart = ->
-    $scope.zoom = $scope.initResolution
+    $scope.visibleRange = $scope.defaultResolution
     $scope.resolution = "year"
 
   $scope.drawHourChart = ->
-    $scope.zoom = $scope.initResolution
+    $scope.visibleRange = $scope.defaultResolution
     $scope.resolution = "day"
 
-  getYaxesLabel = (resolution, chartName) ->
-    yaxisLabel = {
-      "year" : {
-        N: "RPH",
-        MeanStddev : "ms",
-        Max : "ms",
-        Min: "ms",
-      }
-      "day" : {
-        N: "RPM",
-        MeanStddev: "ms",
-        Max: "ms",
-        Min: "ms",
-      }
-    }
-    return yaxisLabel[resolution][chartName]
-
-  getLines = ->
-    lines = {}
-    options = []
-    points = []
-    for lineName, i in $scope.lineNames
-      convertedData = convert($scope.data[$scope.id + "." + lineName], 3)
-
+  getChart = (data, chartInfo, id) ->
+    lines = []
+    for lineName, i in chartInfo.lineNames
+      lineData = convert(data[id + "." + lineName], 3)
       line =
-        data: convertedData
+        data: lineData
         color: i+1
         points:
           show: false
         lines:
           show: true
         label: lineName
-
-      options.push(line)
-      lines.options = options
-      lines.points = convertedData
-    return lines
-
-  redrawCharts = () ->
-    lineNamesInCharts = [
-      ["n"],
-      ["mean", "stddev"] ,
-      ["max"],
-      ["min"]
-    ]
-    $scope.chartNames = []
-    $scope.charts = {}
-
-    for lineNames in lineNamesInCharts
-      $scope.lineNames = lineNames
-      chartName = ""
-
-      for lineName, i in lineNames
-        chartName = chartName + lineName.substr(0, 1).toUpperCase() + lineName.substr(1)
-      $scope.chartNames.push(chartName)
-
-      yaxisLabel = getYaxesLabel($scope.resolution, chartName)
-      lines = getLines()
-
-      $scope.charts[chartName] = {
-        name: chartName,
-        points : lines.points,
-        line: lines.options,
-        chartLabel: chartName,
-        yaxisLabel: yaxisLabel
-      }
-
-    $scope.initResolution = getInitResolution(lines.points)
-    $scope.zoom = $scope.initResolution
+      lines.push(line)
+    return {
+        name: chartInfo.name,
+        yaxisLabel: chartInfo.yAxeLabel[$scope.resolution],
+        line: lines,
+    }
 
   updateChart = ->
-    for chartName in $scope.chartNames
+    for chartName of $scope.charts
       drawChart $scope.charts[chartName]
 
   drawChart = (chart) ->
-    $tooltip = $("#tooltip" + chart.name)
-    $placeHolder = $("#chart" + chart.name)
+    console.log chart
+    $tooltip = $("#tooltip-" + chart.name)
+    $placeHolder = $("#chart-" + chart.name)
+    console.log "#chart-" + chart.name
 
     $tooltip.css("display", "block")
-    $placeHolder.css "display", "block"
+    $placeHolder.css("display", "block")
 
     $placeHolder.empty()
 
@@ -156,13 +134,13 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
         axisLabel: "time"
         mode: "time"
       yaxis:
-        axisLabel: chart.yaxisLabel
+        axisLabel: chart.yAxeLabel
 
-    if ($scope.zoom)
+    if ($scope.visibleRange)
       options = $.extend(true, {}, options, {
         xaxis: {
-          min: $scope.zoom["xFrom"],
-          max: $scope.zoom["xTo"],
+          min: $scope.visibleRange["xFrom"],
+          max: $scope.visibleRange["xTo"],
         },
       })
 
@@ -170,7 +148,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
 
     $placeHolder.bind "plotselected", (event, ranges) ->
       $scope.$apply ->
-        $scope.zoom = {
+        $scope.visibleRange = {
           xFrom: ranges.xaxis.from,
           xTo: ranges.xaxis.to
         }
@@ -179,8 +157,11 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       $tooltip.hide()
       return unless item
       needed = parseInt(item.datapoint[0], 10)
-      res = $.grep chart.points, (v, _) ->
-        return v[0] == needed
+      res = 0
+      for point, i in chart.line[0].data
+
+        res = i+1 if point[0] == needed
+
       return if res.length is 0
 
       x = parseInt(item.datapoint[0], 10)
@@ -213,12 +194,8 @@ convert = (src, base)->
       xAvg = yAvg = 0
   return dst
 
-getInitResolution = (src)->
+getXAxeRange = (src)->
   chartLength = src.length
   xFrom = src[0][0]
   xTo = src[chartLength-1][0]
-  initResolution = {
-    xFrom: xFrom,
-    xTo: xTo
-  }
-  return initResolution
+  return [xFrom, xTo]
