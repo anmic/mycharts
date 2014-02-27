@@ -1,11 +1,9 @@
 div
   input(type="text" ng-model="id")
-  button(ng-click="drawYearChart()") draw Year chart
-  button(ng-click="drawHourChart()") draw Hour chart
-  //- button() Test
+  div(class="btn-group")
+    button(ng-repeat="scale in scalesList" ng-click="setResolution(scale)" ng-class="scales[scale].condition ? 'active': 'passive'") {{scales[scale].name}}
   div
     div(id="overview" style="margin-left:0px;margin-top:20px;width:1200px;height:50px")
-  div
     div(id="chart-n" style="width:1200px;height:300px" ng-right-click="zoomOut()")
     div(id="tooltip-n")
   div

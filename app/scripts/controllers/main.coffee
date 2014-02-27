@@ -10,16 +10,6 @@ mod.config ($routeProvider)->
       templateUrl: "views/charts.html",
       controller: "chartCtrl"
 
-
-mod.directive "ngRightClick", ($parse) ->
-  return (scope, element, attrs) -> 
-    fn = $parse(attrs.ngRightClick)
-    element.bind "contextmenu", (event) -> 
-      scope.$apply ->
-        event.preventDefault()
-        fn(scope, {$event:event})
-
-
 mod.controller "mainCtrl", ($scope) ->
   $scope.chartsList = {
     firstchart: "t.http.POST-notifier_api-v1-notices",
@@ -28,6 +18,53 @@ mod.controller "mainCtrl", ($scope) ->
   }
 
 mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
+  $scope.scales = {
+    year: {
+      name: "Year",
+      convertRatio: 3,
+      requestingResolution: "year", 
+      time: 31536000000,
+      condition: true
+    },
+    threeMonth: {
+      name: "Three month",
+      convertRatio: 2,
+      requestingResolution: "year", 
+      time: 7776000000,
+      condition: true
+    },
+    month: {
+      name: "Month",
+      convertRatio: 2,
+      requestingResolution: "year", 
+      time: 2592000000,
+      condition: true
+    },
+    week: {
+      name: "Week",
+      convertRatio: 1,
+      requestingResolution: "year", 
+      time: 604800000,
+      condition: true
+    },
+    day: {
+      name: "Day",
+      convertRatio: 3,
+      requestingResolution: "day", 
+      time: 86400000,
+      condition: true
+    },
+    hour: {
+      name: "Hour",
+      convertRatio: 3,
+      requestingResolution: "day", 
+      time: 3600000,
+      condition: true
+    },
+  }
+  
+  $scope.scalesList = ["year", "threeMonth", "month", "week", "day", "hour"];
+
   chartsInfo = [
     {
       name: "n",
@@ -52,46 +89,66 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
   ]
 
   $scope.id = $routeParams.id
-  $scope.resolution = "day"
 
-  $scope.$watch "resolution", ->
+  reformData = (currentScale) ->
     chartsData.getData($scope.resolution, $scope.id).then (data) ->
       $scope.charts = {}
       for chartInfo in chartsInfo
-        $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution)
+        $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[currentScale])
 
       points =  $scope.charts[chartInfo.name].line[0].data
       $scope.defaultResolution = getXAxeRange(points)
-      $scope.visibleRange = $scope.defaultResolution
+      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
+      # for chartName of $scope.charts
+      #     drawChart($scope.charts[chartName])
+      redrawCharts()
     , (errorMessage) ->
       $scope.error = errorMessage
 
-  $scope.$watch("visibleRange", ->
-    return unless $scope.visibleRange
+  $scope.setResolution = (currentScale)->
+    newConvertRatio = $scope.scales[currentScale]["convertRatio"]
+    newResolution = $scope.scales[currentScale]["requestingResolution"]
+    for scale in $scope.scalesList
+      $scope. scales[scale].condition = false
+      if (scale == currentScale)
+        $scope. scales[scale].condition = true
+    if ($scope.resolution == newResolution) && ($scope.convertRatio == newConvertRatio)
+      console.log "update"
+      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
+
+      redrawCharts()
+    else
+      $scope.resolution = newResolution
+      $scope.convertRatio = newConvertRatio
+      reformData(currentScale)
+      # chartsData.getData($scope.resolution, $scope.id).then (data) ->
+      #   $scope.charts = {}
+      #   for chartInfo in chartsInfo
+      #     $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[currentScale])
+
+      #   points =  $scope.charts[chartInfo.name].line[0].data
+      #   $scope.defaultResolution = getXAxeRange(points)
+      #   $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
+      #   # for chartName of $scope.charts
+      #   #     drawChart($scope.charts[chartName])
+      #   redrawCharts()
+      # , (errorMessage) ->
+      #   $scope.error = errorMessage
+
+  $scope.setResolution("day")
+
+
+
+  redrawCharts = ()->
     for chartName of $scope.charts
-      drawChart($scope.charts[chartName])
-  , true)  
+        drawChart($scope.charts[chartName])
 
-  $scope.zoomOut = -> 
-    $scope.visibleRange = $scope.defaultResolution
+  # reloadChart = () ->
+  #   # 
 
-  $scope.drawYearChart = ->
-    $scope.visibleRange = $scope.defaultResolution
-    $scope.resolution = "year"
+  # getDataChart
 
-  $scope.drawHourChart = ->
-    $scope.visibleRange = $scope.defaultResolution
-    $scope.resolution = "day"
-
-  selectRange = (placeHolder)->
-    placeHolder.bind "plotselected", (event, ranges) ->
-      $scope.$apply ->
-        $scope.visibleRange = {
-          xFrom: ranges.xaxis.from,
-          xTo: ranges.xaxis.to
-        }
-
-  displayTooltip = ($placeHolder, $tooltip, points) ->
+  displayTooltip = ($placeHolder, $tooltip, points, plot) ->
     $placeHolder.bind "plothover", (event, pos, item) ->
       $tooltip.hide()
       return unless item
@@ -116,6 +173,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
 
 
   drawChart = (chart) ->
+    console.log "drawChart"
     $tooltip = $("#tooltip-" + chart.name)
     $placeHolder = $("#chart-" + chart.name)
 
@@ -134,8 +192,6 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       grid:
         hoverable: true
         clickable: true
-      selection:
-        mode: "x"
       xaxis:
         axisLabel: "time"
         mode: "time"
@@ -143,17 +199,15 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
         axisLabel: chart.yAxeLabel
 
     if ($scope.visibleRange)
-      options = $.extend(true, {}, options, {
+      options = $.extend true, {}, options, {
         xaxis: {
           min: $scope.visibleRange["xFrom"],
           max: $scope.visibleRange["xTo"],
         },
-      })
+      }
 
-    $.plot($placeHolder, chart.line, options)
-
-    selectRange($placeHolder);
-    displayTooltip($placeHolder, $tooltip, chart.line[0].data)
+    plot = $.plot($placeHolder, chart.line, options)
+    displayTooltip($placeHolder, $tooltip, chart.line[0].data, plot)
 
 convert = (src, base)->
   dst = []
@@ -179,10 +233,22 @@ getXAxeRange = (src)->
   return [xFrom, xTo]
 
 
-getChart = (data, chartInfo, id, resolution) ->
+getVisibleRange = (defaultResolution, range)->
+  startPointRange = defaultResolution[1] - range
+  if (startPointRange < defaultResolution[0])
+    xFrom = defaultResolution[0]
+  else xFrom = startPointRange
+  return {
+    xFrom: xFrom,
+    xTo: defaultResolution[1]
+  }
+
+
+
+getChart = (data, chartInfo, id, resolution, scaleProperties) ->
   lines = []
   for lineName, i in chartInfo.lineNames
-    lineData = convert(data[id + "." + lineName], 3)
+    lineData = convert(data[id + "." + lineName], scaleProperties.convertRatio)
     line =
       data: lineData
       color: i+1
