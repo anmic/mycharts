@@ -56,7 +56,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
     },
     hour: {
       name: "Hour",
-      convertRatio: 3,
+      convertRatio: 1,
       requestingResolution: "day", 
       time: 3600000,
       condition: true
@@ -106,47 +106,35 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       $scope.error = errorMessage
 
   $scope.setResolution = (currentScale)->
+    $scope.currentScale = currentScale
     newConvertRatio = $scope.scales[currentScale]["convertRatio"]
     newResolution = $scope.scales[currentScale]["requestingResolution"]
+    
     for scale in $scope.scalesList
       $scope. scales[scale].condition = false
       if (scale == currentScale)
         $scope. scales[scale].condition = true
+    
     if ($scope.resolution == newResolution) && ($scope.convertRatio == newConvertRatio)
-      console.log "update"
       $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
-
       redrawCharts()
     else
       $scope.resolution = newResolution
       $scope.convertRatio = newConvertRatio
       reformData(currentScale)
-      # chartsData.getData($scope.resolution, $scope.id).then (data) ->
-      #   $scope.charts = {}
-      #   for chartInfo in chartsInfo
-      #     $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[currentScale])
-
-      #   points =  $scope.charts[chartInfo.name].line[0].data
-      #   $scope.defaultResolution = getXAxeRange(points)
-      #   $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
-      #   # for chartName of $scope.charts
-      #   #     drawChart($scope.charts[chartName])
-      #   redrawCharts()
-      # , (errorMessage) ->
-      #   $scope.error = errorMessage
 
   $scope.setResolution("day")
 
+  update = ()->
+    updateInterval = 1000
+    reformData($scope.currentScale)
 
+    setTimeout(update, updateInterval)
+  update()
 
   redrawCharts = ()->
     for chartName of $scope.charts
         drawChart($scope.charts[chartName])
-
-  # reloadChart = () ->
-  #   # 
-
-  # getDataChart
 
   displayTooltip = ($placeHolder, $tooltip, points, plot) ->
     $placeHolder.bind "plothover", (event, pos, item) ->
