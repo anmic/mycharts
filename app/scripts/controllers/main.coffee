@@ -90,13 +90,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
 
   $scope.id = $routeParams.id
 
-
-  refreshCharts = () ->
-    getData
-
-
-  reformData = (currentScale) ->
-    console.log "reformData"
+  updateChart = (currentScale) ->
     chartsData.getData($scope.resolution, $scope.id)
     .then (data) ->
       $scope.charts = {}
@@ -110,7 +104,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
     .then () ->
       updateInterval = 2000
       setTimeout( () -> 
-        reformData($scope.currentScale)
+        updateChart($scope.currentScale)
       , updateInterval)
     , (errorMessage) ->
       $scope.error = errorMessage
@@ -131,7 +125,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
     else
       $scope.resolution = newResolution
       $scope.convertRatio = newConvertRatio
-      reformData(currentScale)
+      updateChart(currentScale)
 
   $scope.setResolution("day")
 
