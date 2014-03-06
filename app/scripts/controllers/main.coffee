@@ -90,8 +90,15 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
 
   $scope.id = $routeParams.id
 
+
+  refreshCharts = () ->
+    getData
+
+
   reformData = (currentScale) ->
-    chartsData.getData($scope.resolution, $scope.id).then (data) ->
+    console.log "reformData"
+    chartsData.getData($scope.resolution, $scope.id)
+    .then (data) ->
       $scope.charts = {}
       for chartInfo in chartsInfo
         $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[currentScale])
@@ -99,9 +106,12 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       points =  $scope.charts[chartInfo.name].line[0].data
       $scope.defaultResolution = getXAxeRange(points)
       $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
-      # for chartName of $scope.charts
-      #     drawChart($scope.charts[chartName])
       redrawCharts()
+    .then () ->
+      updateInterval = 2000
+      setTimeout( () -> 
+        reformData($scope.currentScale)
+      , updateInterval)
     , (errorMessage) ->
       $scope.error = errorMessage
 
@@ -124,13 +134,6 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       reformData(currentScale)
 
   $scope.setResolution("day")
-
-  update = ()->
-    updateInterval = 1000
-    reformData($scope.currentScale)
-
-    setTimeout(update, updateInterval)
-  update()
 
   redrawCharts = ()->
     for chartName of $scope.charts
@@ -161,7 +164,6 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
 
 
   drawChart = (chart) ->
-    console.log "drawChart"
     $tooltip = $("#tooltip-" + chart.name)
     $placeHolder = $("#chart-" + chart.name)
 
