@@ -10,6 +10,8 @@ mod.config ($routeProvider)->
       templateUrl: "views/charts.html",
       controller: "chartCtrl"
 
+
+    # /charts/t.http.POST-notifier_api-v2-notices?period=week
 mod.controller "mainCtrl", ($scope) ->
   $scope.chartsList = {
     firstchart: "t.http.POST-notifier_api-v1-notices",
@@ -17,13 +19,18 @@ mod.controller "mainCtrl", ($scope) ->
     thirdChart: "t.http.POST-notifier_api-v3-notices"
   }
 
-mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
+
+mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootScope) ->
+  $scope.id = $routeParams.id
+  $scope.isRefreshing = true
+
   $scope.scales = {
     year: {
       name: "Year",
       convertRatio: 3,
       requestingResolution: "year", 
       time: 31536000000,
+      timeRefresh: 86400000,
       condition: true
     },
     threeMonth: {
@@ -31,6 +38,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       convertRatio: 2,
       requestingResolution: "year", 
       time: 7776000000,
+      timeRefresh: 86400000,
       condition: true
     },
     month: {
@@ -38,6 +46,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       convertRatio: 2,
       requestingResolution: "year", 
       time: 2592000000,
+      timeRefresh: 86400000,
       condition: true
     },
     week: {
@@ -45,6 +54,7 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       convertRatio: 1,
       requestingResolution: "year", 
       time: 604800000,
+      timeRefresh: 3600000,
       condition: true
     },
     day: {
@@ -52,6 +62,8 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       convertRatio: 3,
       requestingResolution: "day", 
       time: 86400000,
+      timeRefresh: 360,
+      # timeRefresh: 3600000,
       condition: true
     },
     hour: {
@@ -59,11 +71,18 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
       convertRatio: 1,
       requestingResolution: "day", 
       time: 3600000,
+      timeRefresh: 50,
       condition: true
     },
   }
   
-  $scope.scalesList = ["year", "threeMonth", "month", "week", "day", "hour"];
+  i = 0
+
+  a = null
+  tim = null
+
+
+  $scope.scalesList = ["year", "threeMonth", "month", "week", "day", "hour"]
 
   chartsInfo = [
     {
@@ -88,46 +107,66 @@ mod.controller "chartCtrl", ($scope, chartsData, $routeParams) ->
     }
   ]
 
-  $scope.id = $routeParams.id
+  timer = null
 
-  updateChart = (currentScale) ->
+
+  updateChart = () ->
+    i++
+    console.log "i = ", i
     chartsData.getData($scope.resolution, $scope.id)
     .then (data) ->
       $scope.charts = {}
       for chartInfo in chartsInfo
-        $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[currentScale])
+        $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[$scope.currentScale])
 
       points =  $scope.charts[chartInfo.name].line[0].data
+
       $scope.defaultResolution = getXAxeRange(points)
-      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
+      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[$scope.currentScale]["time"])
       redrawCharts()
     .then () ->
-      updateInterval = 2000
-      setTimeout( () -> 
-        updateChart($scope.currentScale)
-      , updateInterval)
+      console.log "timer = ", timer
+      clearTimeout(timer)
+      if $scope.isRefreshing
+        updateInterval = $scope.scales[$scope.currentScale]["timeRefresh"]
+        console.log "timer start"
+        timer = setTimeout(->
+          updateChart()
+        , updateInterval)
+
     , (errorMessage) ->
       $scope.error = errorMessage
 
-  $scope.setResolution = (currentScale)->
-    $scope.currentScale = currentScale
-    newConvertRatio = $scope.scales[currentScale]["convertRatio"]
-    newResolution = $scope.scales[currentScale]["requestingResolution"]
+  $scope.redirect = (scale) ->
+    clearTimeout(timer);
+    url = "/charts/" + $scope.id
+    $location.search(period: scale)
+    $location.path(url)
+
+  $scope.setResolution = ()->
+    $scope.currentScale= $routeParams.period
+    newConvertRatio = $scope.scales[$scope.currentScale]["convertRatio"]
+    newResolution = $scope.scales[$scope.currentScale]["requestingResolution"]
     
     for scale in $scope.scalesList
-      $scope. scales[scale].condition = false
-      if (scale == currentScale)
-        $scope. scales[scale].condition = true
+      $scope.scales[scale].condition = false
+      if (scale == $scope.currentScale)
+        $scope.scales[scale].condition = true
     
     if ($scope.resolution == newResolution) && ($scope.convertRatio == newConvertRatio)
-      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[currentScale]["time"])
+      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[$scope.currentScale]["time"])
       redrawCharts()
     else
       $scope.resolution = newResolution
       $scope.convertRatio = newConvertRatio
-      updateChart(currentScale)
+      updateChart()
 
-  $scope.setResolution("day")
+  $scope.setResolution()
+
+  $scope.toggleRefresh = () ->
+    $scope.isRefreshing = !$scope.isRefreshing
+    updateChart();
+
 
   redrawCharts = ()->
     for chartName of $scope.charts
