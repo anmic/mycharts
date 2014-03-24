@@ -1,7 +1,9 @@
 div
   input(type="text" ng-model="id")
   div(class="btn-group")
-    button(ng-repeat="scale in scalesList" ng-click="setResolution(scale)" ng-class="scales[scale].condition ? 'active': 'passive'") {{scales[scale].name}}
+    button(ng-click="test()") Test
+    button(ng-click="toggleRefresh()" ng-class="{'red': !isRefreshing, 'green': isRefreshing}") Resfresh
+    button(ng-click="redirect(scale)" ng-repeat="scale in scalesList" ng-class="scales[scale].condition ? 'active': 'passive'") {{scales[scale].name}}
   div
     div(id="overview" style="margin-left:0px;margin-top:20px;width:1200px;height:50px")
     div(id="chart-n" style="width:1200px;height:300px" ng-right-click="zoomOut()")
