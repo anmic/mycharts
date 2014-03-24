@@ -81,7 +81,6 @@ mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootS
   a = null
   tim = null
 
-
   $scope.scalesList = ["year", "threeMonth", "month", "week", "day", "hour"]
 
   chartsInfo = [
@@ -108,7 +107,6 @@ mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootS
   ]
 
   timer = null
-
 
   updateChart = () ->
     i++
