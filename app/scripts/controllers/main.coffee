@@ -10,8 +10,6 @@ mod.config ($routeProvider)->
       templateUrl: "views/charts.html",
       controller: "chartCtrl"
 
-
-    # /charts/t.http.POST-notifier_api-v2-notices?period=week
 mod.controller "mainCtrl", ($scope) ->
   $scope.chartsList = {
     firstchart: "t.http.POST-notifier_api-v1-notices",
@@ -20,7 +18,8 @@ mod.controller "mainCtrl", ($scope) ->
   }
 
 
-mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootScope) ->
+mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routeParams, $rootScope) ->
+
   $scope.id = $routeParams.id
   $scope.isRefreshing = true
 
@@ -62,25 +61,18 @@ mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootS
       convertRatio: 3,
       requestingResolution: "day", 
       time: 86400000,
-      timeRefresh: 360,
-      # timeRefresh: 3600000,
+      timeRefresh: 3600000,
       condition: true
     },
     hour: {
       name: "Hour",
       convertRatio: 1,
       requestingResolution: "day", 
-      time: 3600000,
+      time: 10000000,
       timeRefresh: 50,
       condition: true
     },
   }
-  
-  i = 0
-
-  a = null
-  tim = null
-
 
   $scope.scalesList = ["year", "threeMonth", "month", "week", "day", "hour"]
 
@@ -109,28 +101,27 @@ mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootS
 
   timer = null
 
+  $scope.$on('$destroy', ->
+    $timeout.cancel(timer)
+  )
 
   updateChart = () ->
-    i++
-    console.log "i = ", i
     chartsData.getData($scope.resolution, $scope.id)
     .then (data) ->
       $scope.charts = {}
       for chartInfo in chartsInfo
-        $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[$scope.currentScale])
+        $scope.charts[chartInfo.name] = getChart(data, chartInfo, $scope.id, $scope.resolution, $scope.scales[$scope.period])
 
       points =  $scope.charts[chartInfo.name].line[0].data
 
       $scope.defaultResolution = getXAxeRange(points)
-      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[$scope.currentScale]["time"])
+      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[$scope.period]["time"])
       redrawCharts()
     .then () ->
-      console.log "timer = ", timer
-      clearTimeout(timer)
+      $timeout.cancel(timer)
       if $scope.isRefreshing
-        updateInterval = $scope.scales[$scope.currentScale]["timeRefresh"]
-        console.log "timer start"
-        timer = setTimeout(->
+        updateInterval = $scope.scales[$scope.period]["timeRefresh"]
+        timer = $timeout(->
           updateChart()
         , updateInterval)
 
@@ -138,23 +129,23 @@ mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootS
       $scope.error = errorMessage
 
   $scope.redirect = (scale) ->
-    clearTimeout(timer);
+    $timeout.cancel(timer)
     url = "/charts/" + $scope.id
     $location.search(period: scale)
     $location.path(url)
 
   $scope.setResolution = ()->
-    $scope.currentScale= $routeParams.period
-    newConvertRatio = $scope.scales[$scope.currentScale]["convertRatio"]
-    newResolution = $scope.scales[$scope.currentScale]["requestingResolution"]
+    $scope.period= $routeParams.period
+    newConvertRatio = $scope.scales[$scope.period]["convertRatio"]
+    newResolution = $scope.scales[$scope.period]["requestingResolution"]
     
     for scale in $scope.scalesList
       $scope.scales[scale].condition = false
-      if (scale == $scope.currentScale)
+      if (scale == $scope.period)
         $scope.scales[scale].condition = true
-    
+            
     if ($scope.resolution == newResolution) && ($scope.convertRatio == newConvertRatio)
-      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[$scope.currentScale]["time"])
+      $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[$scope.period]["time"])
       redrawCharts()
     else
       $scope.resolution = newResolution
@@ -194,7 +185,6 @@ mod.controller "chartCtrl", ($scope, $location, chartsData, $routeParams, $rootS
         top: item.pageY + radius,
         left: item.pageX + radius,
       }).fadeIn(200)
-
 
   drawChart = (chart) ->
     $tooltip = $("#tooltip-" + chart.name)
@@ -255,7 +245,6 @@ getXAxeRange = (src)->
   xTo = src[chartLength-1][0]
   return [xFrom, xTo]
 
-
 getVisibleRange = (defaultResolution, range)->
   startPointRange = defaultResolution[1] - range
   if (startPointRange < defaultResolution[0])
@@ -265,8 +254,6 @@ getVisibleRange = (defaultResolution, range)->
     xFrom: xFrom,
     xTo: defaultResolution[1]
   }
-
-
 
 getChart = (data, chartInfo, id, resolution, scaleProperties) ->
   lines = []
