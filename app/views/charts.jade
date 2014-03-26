@@ -1,8 +1,16 @@
-div
-  input(type="text" ng-model="id")
-  div(class="btn-group")
-    button(ng-click="toggleRefresh()" ng-class="{'btn-active': isRefreshing}") Resfresh
-    button(ng-click="redirect(scale)" ng-repeat="scale in scalesList" ng-class="{'btn-selected': scales[scale].isActive}") {{scales[scale].name}}
+div  
+  div(class="row")
+    div(class="col-xs-2")
+      a(href="http://127.0.0.1:9000/#/") Main
+  div(class="row")
+    div(class="col-xs-3")
+      input(type="text" ng-model="chartId")
+    div(class="col-xs-2")
+      input(type="checkbox" ng-model="isRefreshing")
+      b Refresh
+    div(class="col-xs-6")
+      div(class="btn-group")
+        button(ng-click="switchPeriod(period.name)" ng-repeat="period in periods" ng-class="{'btn-selected': period.isActive}") {{period.label}} 
   div
     div(id="overview" style="margin-left:0px;margin-top:20px;width:1200px;height:50px")
     div(id="chart-n" style="width:1200px;height:300px" ng-right-click="zoomOut()")
