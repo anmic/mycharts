@@ -19,10 +19,6 @@ mod.controller "mainCtrl", ($scope) ->
 
 
 mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routeParams, $rootScope) ->
-
-  $scope.id = $routeParams.id
-  $scope.isRefreshing = true
-
   $scope.scales = {
     year: {
       name: "Year",
@@ -30,7 +26,7 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routePara
       requestingResolution: "year", 
       time: 31536000000,
       timeRefresh: 86400000,
-      condition: true
+      isActive: true
     },
     threeMonth: {
       name: "Three month",
@@ -38,7 +34,7 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routePara
       requestingResolution: "year", 
       time: 7776000000,
       timeRefresh: 86400000,
-      condition: true
+      isActive: true
     },
     month: {
       name: "Month",
@@ -46,7 +42,7 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routePara
       requestingResolution: "year", 
       time: 2592000000,
       timeRefresh: 86400000,
-      condition: true
+      isActive: true
     },
     week: {
       name: "Week",
@@ -54,23 +50,23 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routePara
       requestingResolution: "year", 
       time: 604800000,
       timeRefresh: 3600000,
-      condition: true
+      isActive: true
     },
     day: {
       name: "Day",
       convertRatio: 3,
       requestingResolution: "day", 
       time: 86400000,
-      timeRefresh: 3600000,
-      condition: true
+      timeRefresh: 6000,
+      isActive: true
     },
     hour: {
       name: "Hour",
       convertRatio: 1,
       requestingResolution: "day", 
-      time: 10000000,
-      timeRefresh: 50,
-      condition: true
+      time: 3600000,
+      timeRefresh: 1000,
+      isActive: true
     },
   }
 
@@ -98,6 +94,9 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routePara
       lineNames: ["min"]
     }
   ]
+
+  $scope.id = $routeParams.id
+  $scope.isRefreshing = true
 
   timer = null
 
@@ -140,9 +139,9 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routePara
     newResolution = $scope.scales[$scope.period]["requestingResolution"]
     
     for scale in $scope.scalesList
-      $scope.scales[scale].condition = false
+      $scope.scales[scale].isActive = false
       if (scale == $scope.period)
-        $scope.scales[scale].condition = true
+        $scope.scales[scale].isActive = true
             
     if ($scope.resolution == newResolution) && ($scope.convertRatio == newConvertRatio)
       $scope.visibleRange = getVisibleRange($scope.defaultResolution, $scope.scales[$scope.period]["time"])
@@ -157,7 +156,6 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, $routePara
   $scope.toggleRefresh = () ->
     $scope.isRefreshing = !$scope.isRefreshing
     updateChart();
-
 
   redrawCharts = ()->
     for chartName of $scope.charts
