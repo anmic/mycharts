@@ -8,6 +8,7 @@ mod.config ($routeProvider)->
       controller: "mainCtrl"
     .when "/charts/:id",
       templateUrl: "views/charts.html",
+      reloadOnSearch: false,
       controller: "chartCtrl"
 
 mod.controller "mainCtrl", ($scope) ->
@@ -26,6 +27,8 @@ updateTimer = null
 mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData, 
     $routeParams, $rootScope
 ) ->
+
+  console.log "controller start"
 
   $scope.periods = [
     {
@@ -110,11 +113,30 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData,
   $scope.chartId = $routeParams.id
   $scope.isRefreshing = true 
 
-  $scope.$on '$destroy', ->
-    $timeout.cancel(updateTimer)
+  $scope.$watch "period", () ->
+    updateChart()
+  , true
+
+
+  $scope.$on('$routeUpdate', ->
+    if $scope.period.name != $routeParams.trackingInterval
+      $scope.chooseInterval($routeParams.trackingInterval)
+  )
 
   $scope.$watch "isRefreshing", ->
     updateChart()
+
+
+  $scope.chooseInterval = (name) ->
+    for period in $scope.periods
+      period.isSelected = false
+      if period.name == name
+        $scope.period = period
+        period.isSelected = true
+
+    $location.search(trackingInterval: name)
+
+  $scope.chooseInterval("day");
 
   updateChart = () ->
     chartsData.getData($scope.period.resolution, $scope.chartId).then (data) ->
@@ -124,7 +146,6 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData,
           data,
           chartInfo,
           $scope.chartId,
-          $scope.period.resolution,
           $scope.period
         )
 
@@ -142,22 +163,6 @@ mod.controller "chartCtrl", ($scope, $location, $timeout, chartsData,
     , (errorMessage) ->
       $scope.error = errorMessage
 
-  $scope.switchPeriod = (trackingInterval) ->
-    $location.path("/charts/" + $scope.chartId)
-    $location.search(trackingInterval: trackingInterval)
-
-  $scope.setResolution = ->
-    $scope.trackingInterval = $routeParams.trackingInterval
-    
-    for period in $scope.periods
-      period.isSelected = false
-      if period.name == $scope.trackingInterval
-        $scope.period = period
-        period.isSelected = true
-
-    updateChart()
-
-  $scope.setResolution()
 
   redrawCharts = ()->
     for chartName of $scope.charts
@@ -240,7 +245,7 @@ getVisibleLineSegment = (src, duration) ->
       dst.push(src[i])
   return dst
   
-getChart = (data, chartInfo, id, resolution, scaleProperties) ->
+getChart = (data, chartInfo, id, scaleProperties) ->
   lines = []
   for lineName, i in chartInfo.lineNames
     lineData = convert(data[id + "." + lineName], scaleProperties.convertRatio)
@@ -258,6 +263,6 @@ getChart = (data, chartInfo, id, resolution, scaleProperties) ->
     lines.push(line)
   return {
       name: chartInfo.name,
-      yaxisLabel: chartInfo.yAxeLabel[resolution],
+      yaxisLabel: chartInfo.yAxeLabel[scaleProperties.resolution],
       line: lines,
   }

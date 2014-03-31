@@ -10,7 +10,7 @@ div
       b Refresh
     div(class="col-xs-6")
       div(class="btn-group")
-        button(ng-click="switchPeriod(period.name)" ng-repeat="period in periods" ng-class="{'btn-selected': period.isActive}") {{period.label}} 
+        button(ng-click="chooseInterval(period.name)" ng-repeat="period in periods" ng-class="{'btn-selected': period.isSelected}") {{period.label}} 
   div
     div(id="overview" style="margin-left:0px;margin-top:20px;width:1200px;height:50px")
     div(id="chart-n" style="width:1200px;height:300px" ng-right-click="zoomOut()")
